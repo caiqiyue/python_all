@@ -1,0 +1,15 @@
+from py2neo import *
+a = Node("Person", name="Alice")
+b = Node("Person", name="Bob")
+c = Node("Person", name="Carol")
+KNOWS = Relationship.type("KNOWS")
+ab = KNOWS(a, b)
+ba = KNOWS(b, a)
+ac = KNOWS(a, c)
+ca = KNOWS(c, a)
+bc = KNOWS(b, c)
+cb = KNOWS(c, b)
+friends = ab | ba | ac | ca | bc | cb
+g = Graph("bolt://localhost:7687", auth=("neo4j", "123456"))
+g.delete_all()
+g.create(friends)
