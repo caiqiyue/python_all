@@ -21,7 +21,11 @@ g.create(caral)
 #nodematcher的用法
 
 node_matcher = NodeMatcher(g)
-result = node_matcher.match('Person',name='alice',age = 10)#后面也可以跟 where条件语句
+result = node_matcher.match('Person',name='alice',age = 10)#后面也可以跟 where条件语句，因为返回的是 NodeMatch对象 不是 NodeMatcher对象
+
+#可以 iter  first where
+for node in iter(result):
+    print(node)
 
 print(result)#<py2neo.matching.NodeMatch object at 0x0000025B8B597FA0>
 
