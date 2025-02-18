@@ -38,6 +38,7 @@ create_relationships(g.auto(), data, "WORKS_FOR", \
 start_node_key = (label,key1,key2) = end_node_key
 
 而且也需要注意，如果没有 开始节点和结束节点，他不会创建新的节点
+所以批量创建关系时，一定要确保  实体节点都存在
 
 """
 
