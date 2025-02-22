@@ -460,9 +460,6 @@
 #代码11 
 import win32com.client
 
-# speaker = win32com.client.Dispatch("SAPI.SpVoice")
-# speaker.Speak('我的名字是蔡启越')
-
 class Calculator(object):
     """
     装饰器，只能接受 func 被装饰函数，因为这是 系统自动的  add = __say_decorator(add)
@@ -549,7 +546,7 @@ class Calculator(object):
         return self
         
         
-c1 = Calculator(2)
-c1.add(4).add(10).multiply(10).division(2).show().clear()#链式调用
+# c1 = Calculator(2)
+# c1.add(4).add(10).multiply(10).division(2).show().clear()#链式调用
 
-print(c1.result)
+# print(c1.result)
