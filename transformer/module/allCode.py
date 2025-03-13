@@ -81,7 +81,7 @@ def make_data(sentences):
     return torch.LongTensor(enc_inputs), torch.LongTensor(dec_inputs), torch.LongTensor(dec_outputs)
 
 
-enc_inputs, dec_inputs, dec_outputs = make_data(sentences)
+enc_inputs, dec_inputs, dec_outputs = make_data(sentences)#把法语和英语转化成词表id
 
 
 class MyDataSet(Data.Dataset):
@@ -100,7 +100,7 @@ class MyDataSet(Data.Dataset):
         return self.enc_inputs[idx], self.dec_inputs[idx], self.dec_outputs[idx]
 
 
-loader = Data.DataLoader(MyDataSet(enc_inputs, dec_inputs, dec_outputs), 2, True)
+loader = Data.DataLoader(MyDataSet(enc_inputs, dec_inputs, dec_outputs), 2, True)#准备好数据
 
 
 # ====================================================================================================
@@ -111,19 +111,19 @@ class PositionalEncoding(nn.Module):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
 
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0).transpose(0, 1)
+        pe = torch.zeros(max_len, d_model)#5000,512
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)#5000,1
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))#256
+        pe[:, 0::2] = torch.sin(position * div_term)#偶数部分使用sin
+        pe[:, 1::2] = torch.cos(position * div_term)#奇数部分使用cos
+        pe = pe.unsqueeze(0).transpose(0, 1)#5000,1,512
         self.register_buffer('pe', pe)
 
     def forward(self, x):
         """
         x: [seq_len, batch_size, d_model]
         """
-        x = x + self.pe[:x.size(0), :]
+        x = x + self.pe[:x.size(0), :]#token_embedding 加上 位置信息  5,2,512  len,bs,d_model
         return self.dropout(x)
 
 
@@ -140,7 +140,7 @@ def get_attn_pad_mask(seq_q, seq_k):
     batch_size, len_k = seq_k.size()
     # eq(zero) is PAD token
     # 例如:seq_k = [[1,2,3,4,0], [1,2,3,5,0]]
-    pad_attn_mask = seq_k.data.eq(0).unsqueeze(1)  # [batch_size, 1, len_k], True is masked
+    pad_attn_mask = seq_k.data.eq(0).unsqueeze(1)  # [batch_size, 1, len_k], True is masked 2,1,5,每句话都一个 掩码，遮去padding
     return pad_attn_mask.expand(batch_size, len_q, len_k)  # [batch_size, len_q, len_k] 构成一个立方体(batch_size个这样的矩阵)
 
 
@@ -162,19 +162,19 @@ class ScaledDotProductAttention(nn.Module):
 
     def forward(self, Q, K, V, attn_mask):
         """
-        Q: [batch_size, n_heads, len_q, d_k]
-        K: [batch_size, n_heads, len_k, d_k]
+        Q: [batch_size, n_heads, len_q, d_k] 交叉注意力时 Q 2，8，6，64  K:2,8,5,64
+        K: [batch_size, n_heads, len_k, d_k]   
         V: [batch_size, n_heads, len_v(=len_k), d_v]
         attn_mask: [batch_size, n_heads, seq_len, seq_len]
         说明：在encoder-decoder的Attention层中len_q(q1,..qt)和len_k(k1,...km)可能不同
         """
-        scores = torch.matmul(Q, K.transpose(-1, -2)) / np.sqrt(d_k)  # scores : [batch_size, n_heads, len_q, len_k]
+        scores = torch.matmul(Q, K.transpose(-1, -2)) / np.sqrt(d_k)  # scores : [batch_size, n_heads, len_q, len_k],相似度得分  交叉注意力时2,8,6,5
         # mask矩阵填充scores（用-1e9填充scores中与attn_mask中值为1位置相对应的元素）
-        scores.masked_fill_(attn_mask, -1e9)  # Fills elements of self tensor with value where mask is True.
+        scores.masked_fill_(attn_mask, -1e9)  # 2,8,5,5 每个头 对应的 5x5的矩阵中，对应部分将值改为 -0.0000000009
 
-        attn = nn.Softmax(dim=-1)(scores)  # 对最后一个维度(v)做softmax
+        attn = nn.Softmax(dim=-1)(scores)  # 对最后一个维度(v)做softmax,相似度得分转为概率值， -0.0000000009 变为0，起到掩码作用
         # scores : [batch_size, n_heads, len_q, len_k] * V: [batch_size, n_heads, len_v(=len_k), d_v]
-        context = torch.matmul(attn, V)  # context: [batch_size, n_heads, len_q, d_v]
+        context = torch.matmul(attn, V)  # context: [batch_size, n_heads, len_q, d_v] 2,8,5,64  交叉注意力时 2，8，6，5 和 2，8，5，64 ---> 2,8,6,64
         # context：[[z1,z2,...],[...]]向量, attn注意力稀疏矩阵（用于可视化的）
         return context, attn
 
@@ -189,9 +189,9 @@ class MultiHeadAttention(nn.Module):
     def __init__(self):
         super(MultiHeadAttention, self).__init__()
         self.W_Q = nn.Linear(d_model, d_k * n_heads, bias=False)  # q,k必须维度相同，不然无法做点积
-        self.W_K = nn.Linear(d_model, d_k * n_heads, bias=False)
+        self.W_K = nn.Linear(d_model, d_k * n_heads, bias=False) #将512  --->  8 * 64 8个头，64维特征
         self.W_V = nn.Linear(d_model, d_v * n_heads, bias=False)
-        self.fc = nn.Linear(n_heads * d_v, d_model, bias=False)
+        self.fc = nn.Linear(n_heads * d_v, d_model, bias=False) #将  头 合并
 
     def forward(self, input_Q, input_K, input_V, attn_mask):
         """
@@ -207,24 +207,24 @@ class MultiHeadAttention(nn.Module):
         #           线性变换               拆成多头
 
         # Q: [batch_size, n_heads, len_q, d_k]
-        Q = self.W_Q(input_Q).view(batch_size, -1, n_heads, d_k).transpose(1, 2)
+        Q = self.W_Q(input_Q).view(batch_size, -1, n_heads, d_k).transpose(1, 2)#2,8,5,64 8个头，每个头里的 5个词，用64维特征表示这5个词
         # K: [batch_size, n_heads, len_k, d_k] # K和V的长度一定相同，维度可以不同
-        K = self.W_K(input_K).view(batch_size, -1, n_heads, d_k).transpose(1, 2)
+        K = self.W_K(input_K).view(batch_size, -1, n_heads, d_k).transpose(1, 2)#2,8,5,64
         # V: [batch_size, n_heads, len_v(=len_k), d_v]
-        V = self.W_V(input_V).view(batch_size, -1, n_heads, d_v).transpose(1, 2)
+        V = self.W_V(input_V).view(batch_size, -1, n_heads, d_v).transpose(1, 2)#2,8,5,64 做交叉注意力时，K,V来自encoder，query来自decoder
 
         # 因为是多头，所以mask矩阵要扩充成4维的
         # attn_mask: [batch_size, seq_len, seq_len] -> [batch_size, n_heads, seq_len, seq_len]
-        attn_mask = attn_mask.unsqueeze(1).repeat(1, n_heads, 1, 1)
+        attn_mask = attn_mask.unsqueeze(1).repeat(1, n_heads, 1, 1)#2,8,5,5,每个头，都要有一个mask，因为计算完相似度后是一个5x5的矩阵 如果是交叉注意力时 就是 6x5
 
         # context: [batch_size, n_heads, len_q, d_v], attn: [batch_size, n_heads, len_q, len_k]
-        context, attn = ScaledDotProductAttention()(Q, K, V, attn_mask)
+        context, attn = ScaledDotProductAttention()(Q, K, V, attn_mask)#每个头分别做 注意力计算
         # 下面将不同头的输出向量拼接在一起
         # context: [batch_size, n_heads, len_q, d_v] -> [batch_size, len_q, n_heads * d_v]
-        context = context.transpose(1, 2).reshape(batch_size, -1, n_heads * d_v)
+        context = context.transpose(1, 2).reshape(batch_size, -1, n_heads * d_v)#2,5,512 合并头
         # 再做一个projection
-        output = self.fc(context)  # [batch_size, len_q, d_model]
-        return nn.LayerNorm(d_model).to(device)(output + residual), attn
+        output = self.fc(context)  # [batch_size, len_q, d_model] 2,5,512 使得特征再复杂一点
+        return nn.LayerNorm(d_model).to(device)(output + residual), attn #这里有层归一化和残差连接
 
 
 # Pytorch中的Linear只会对最后一维操作，所以正好是我们希望的每个位置用同一个全连接网络
@@ -232,7 +232,7 @@ class PoswiseFeedForwardNet(nn.Module):
     def __init__(self):
         super(PoswiseFeedForwardNet, self).__init__()
         self.fc = nn.Sequential(
-            nn.Linear(d_model, d_ff, bias=False),
+            nn.Linear(d_model, d_ff, bias=False),#前馈神经网络
             nn.ReLU(),
             nn.Linear(d_ff, d_model, bias=False)
         )
@@ -241,8 +241,8 @@ class PoswiseFeedForwardNet(nn.Module):
         """
         inputs: [batch_size, seq_len, d_model]
         """
-        residual = inputs
-        output = self.fc(inputs)
+        residual = inputs# decoder时 2，6，512
+        output = self.fc(inputs) #2,6,512
         return nn.LayerNorm(d_model).to(device)(output + residual)  # [batch_size, seq_len, d_model]
 
 
@@ -263,7 +263,7 @@ class EncoderLayer(nn.Module):
         # 第三个enc_inputs * W_V = V
         enc_outputs, attn = self.enc_self_attn(enc_inputs, enc_inputs, enc_inputs,
                                                enc_self_attn_mask)  # enc_inputs to same Q,K,V（未线性变换前）
-        enc_outputs = self.pos_ffn(enc_outputs)
+        enc_outputs = self.pos_ffn(enc_outputs)#前馈神经网络，2，5，512
         # enc_outputs: [batch_size, src_len, d_model]
         return enc_outputs, attn
 
@@ -303,10 +303,10 @@ class Encoder(nn.Module):
         """
         enc_inputs: [batch_size, src_len]
         """
-        enc_outputs = self.src_emb(enc_inputs)  # [batch_size, src_len, d_model]
-        enc_outputs = self.pos_emb(enc_outputs.transpose(0, 1)).transpose(0, 1)  # [batch_size, src_len, d_model]
+        enc_outputs = self.src_emb(enc_inputs)  # [batch_size, src_len, d_model] 将encoder输入 变成词向量
+        enc_outputs = self.pos_emb(enc_outputs.transpose(0, 1)).transpose(0, 1)  # [batch_size, src_len, d_model] 加入位置信息后的encoder输入
         # Encoder输入序列的pad mask矩阵
-        enc_self_attn_mask = get_attn_pad_mask(enc_inputs, enc_inputs)  # [batch_size, src_len, src_len]
+        enc_self_attn_mask = get_attn_pad_mask(enc_inputs, enc_inputs)  # [batch_size, src_len, src_len] 掩码，至于为什么这个size，后面就知道了
         enc_self_attns = []  # 在计算中不需要用到，它主要用来保存你接下来返回的attention的值（这个主要是为了你画热力图等，用来看各个词之间的关系
         for layer in self.layers:  # for循环访问nn.ModuleList对象
             # 上一个block的输出enc_outputs作为当前block的输入
@@ -330,14 +330,14 @@ class Decoder(nn.Module):
         enc_inputs: [batch_size, src_len]
         enc_outputs: [batch_size, src_len, d_model]   # 用在Encoder-Decoder Attention层
         """
-        dec_outputs = self.tgt_emb(dec_inputs)  # [batch_size, tgt_len, d_model]
+        dec_outputs = self.tgt_emb(dec_inputs)  # [batch_size, tgt_len, d_model] 2,6,512
         dec_outputs = self.pos_emb(dec_outputs.transpose(0, 1)).transpose(0, 1).to(
-            device)  # [batch_size, tgt_len, d_model]
+            device)  # [batch_size, tgt_len, d_model]  2,6,512
         # Decoder输入序列的pad mask矩阵（这个例子中decoder是没有加pad的，实际应用中都是有pad填充的）
-        dec_self_attn_pad_mask = get_attn_pad_mask(dec_inputs, dec_inputs).to(device)  # [batch_size, tgt_len, tgt_len]
+        dec_self_attn_pad_mask = get_attn_pad_mask(dec_inputs, dec_inputs).to(device)  # [batch_size, tgt_len, tgt_len] 2,6,6,因为作为相似度后，是6x6的矩阵，所以要把掩码扩展为，2，6，6
         # Masked Self_Attention：当前时刻是看不到未来的信息的
         dec_self_attn_subsequence_mask = get_attn_subsequence_mask(dec_inputs).to(
-            device)  # [batch_size, tgt_len, tgt_len]
+            device)  # [batch_size, tgt_len, tgt_len] 形状像一个三角形
 
         # Decoder中把两种mask矩阵相加（既屏蔽了pad的信息，也屏蔽了未来时刻的信息）
         dec_self_attn_mask = torch.gt((dec_self_attn_pad_mask + dec_self_attn_subsequence_mask),
@@ -345,8 +345,8 @@ class Decoder(nn.Module):
 
         # 这个mask主要用于encoder-decoder attention层
         # get_attn_pad_mask主要是enc_inputs的pad mask矩阵(因为enc是处理K,V的，求Attention时是用v1,v2,..vm去加权的，要把pad对应的v_i的相关系数设为0，这样注意力就不会关注pad向量)
-        #                       dec_inputs只是提供expand的size的
-        dec_enc_attn_mask = get_attn_pad_mask(dec_inputs, enc_inputs)  # [batc_size, tgt_len, src_len]
+        #                       dec_inputs只是提供expand的size的，交叉注意力计算的是 enc_input和dec_input之间的相似度
+        dec_enc_attn_mask = get_attn_pad_mask(dec_inputs, enc_inputs)  # [batc_size, tgt_len, src_len] 2,6,5
 
         dec_self_attns, dec_enc_attns = [], []
         for layer in self.layers:
@@ -365,7 +365,7 @@ class Transformer(nn.Module):
         super(Transformer, self).__init__()
         self.encoder = Encoder().to(device)
         self.decoder = Decoder().to(device)
-        self.projection = nn.Linear(d_model, tgt_vocab_size, bias=False).to(device)
+        self.projection = nn.Linear(d_model, tgt_vocab_size, bias=False).to(device)#最后的全连接层，预测结果
 
     def forward(self, enc_inputs, dec_inputs):
         """Transformers的输入：两个序列
@@ -377,11 +377,11 @@ class Transformer(nn.Module):
 
         # enc_outputs: [batch_size, src_len, d_model], enc_self_attns: [n_layers, batch_size, n_heads, src_len, src_len]
         # 经过Encoder网络后，得到的输出还是[batch_size, src_len, d_model]
-        enc_outputs, enc_self_attns = self.encoder(enc_inputs)
+        enc_outputs, enc_self_attns = self.encoder(enc_inputs)#经过encoder块 2,5,512   [(2,8,5,5), ]
         # dec_outputs: [batch_size, tgt_len, d_model], dec_self_attns: [n_layers, batch_size, n_heads, tgt_len, tgt_len], dec_enc_attn: [n_layers, batch_size, tgt_len, src_len]
-        dec_outputs, dec_self_attns, dec_enc_attns = self.decoder(dec_inputs, enc_inputs, enc_outputs)
+        dec_outputs, dec_self_attns, dec_enc_attns = self.decoder(dec_inputs, enc_inputs, enc_outputs)#2,6,512  [(2,8,6,6),]  [(2,8,6,5),  ]
         # dec_outputs: [batch_size, tgt_len, d_model] -> dec_logits: [batch_size, tgt_len, tgt_vocab_size]
-        dec_logits = self.projection(dec_outputs)
+        dec_logits = self.projection(dec_outputs)#2,6,9 两句话，每句话6个词，每个词预测为9个词的概率（词表中只有6个词）
         return dec_logits.view(-1, dec_logits.size(-1)), enc_self_attns, dec_self_attns, dec_enc_attns
 
 
@@ -399,7 +399,7 @@ for epoch in range(epochs):
         dec_outputs: [batch_size, tgt_len]
         """
         enc_inputs, dec_inputs, dec_outputs = enc_inputs.to(device), dec_inputs.to(device), dec_outputs.to(device)
-        # outputs: [batch_size * tgt_len, tgt_vocab_size]
+        # outputs: [batch_size * tgt_len, tgt_vocab_size] outputs 两句话 每句话6个词，总共12个词，每个词预测为 词表中每个词的 概率
         outputs, enc_self_attns, dec_self_attns, dec_enc_attns = model(enc_inputs, dec_inputs)
         loss = criterion(outputs, dec_outputs.view(-1))  # dec_outputs.view(-1):[batch_size * tgt_len * tgt_vocab_size]
         print('Epoch:', '%04d' % (epoch + 1), 'loss =', '{:.6f}'.format(loss))

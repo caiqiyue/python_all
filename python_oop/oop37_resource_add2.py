@@ -47,3 +47,31 @@ class A(B):
 a_obj = A()
 print(a_obj.a)
 print(a_obj.b)#由于A类有自己的init方法，导致不会去执行B类的init方法，那么实例a就不会有实例属性b 
+
+
+
+#============================================菱形继承时，使用这样的方式去继承父类的实例属性，会造成重复继承
+
+class GrandFather(object):
+    def __init__(self) -> None:
+        self.d = 10
+        
+        
+class Father(GrandFather):
+    def __init__(self) -> None:
+        GrandFather.__init__(self)
+        self.b = 20
+        
+class Mother(GrandFather):
+    def __init__(self) -> None:
+        GrandFather.__init__(self)
+        self.c = 30
+        
+class Children(Father,Mother):
+    def __init__(self) -> None:
+        Father.__init__(self)
+        Mother.__init__(self)
+        self.a = 40
+        
+
+        
