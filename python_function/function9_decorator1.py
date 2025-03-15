@@ -1,12 +1,28 @@
 
 
+
+def checkLogin(func):
+    print("xxxxxx")
+    def inner():
+        print("登录验证..................")
+        func()
+    return inner
+
+
+@checkLogin
 def fashuoshuo():
     print("fashuoshuo")
-    
+"""
+@checklogin 的时候， 就等同于 直接执行了 fashuoshuo = checkLogin(fashuoshuo),这就是装饰器的执行时间，立即执行 一@就执行了
+"""    
+# fashuoshuo = checkLogin(fashuoshuo)
+# fashuoshuo()
+
+@checkLogin
 def fatupian():
     print("fatupian")
-    
 
+# fatupian()
 
 """
 功能代码要和业务逻辑代码分开
