@@ -20,10 +20,10 @@ import sys
 
 """
 ['c:\\Users\\ASUS\\PycharmProjects\\python_all\\python_package\\p1', 'D:\\anconda\\envs\\pythonProject4\\python39.zip', 'D:\\anconda\\envs\\pythonProject4\\DLLs', 'D:\\anconda\\envs\\pythonProject4\\lib', 'D:\\anconda\\envs\\pythonProject4', 'C:\\', 'D:\\anconda\\envs\\pythonProject4\\lib\\site-packages', 'D:\\anconda\\envs\\pythonProject4\\lib\\site-packages\\hnswlib-0.6.1-py3.9-win-amd64.egg', 'D:\\anconda\\envs\\pythonProject4\\lib\\site-packages\\win32', 'D:\\anconda\\envs\\pythonProject4\\lib\\site-packages\\win32\\lib', 'D:\\anconda\\envs\\pythonProject4\\lib\\site-packages\\Pythonwin']
-Tool2这个模块，是p1包里面的模块，现在我从Tool2中，导入 p1 包里面的Tool，属于包里面导入模块
+Tool_test这个模块，是p1包里面的模块，现在我从Tool_test中，导入 p1 包里面的Tool，属于包里面导入模块
 打印sys.path
 可以看到模块的查找路径优先级的排序，第一 路径是 'c:\\Users\\ASUS\\PycharmProjects\\python_all\\python_package\\p1' 
-这个Tool2当前模块所在的目录
+这个Tool_test当前模块所在的目录
 所以，你导入Tool模块的时候，它就会先去 这个路径（...p1）下去找Tool，那么这个路径下也的确存在Tool模块
 
 注意，包内导入的时候，使用绝对导入，容易出现问题；也就是包外的文件导入Tool_test,Tool_test使用绝对导入，导入包内模块，可能会出现报错
