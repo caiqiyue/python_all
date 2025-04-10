@@ -13,6 +13,7 @@ mnist = tf_keras.datasets.mnist
 
 x_train,x_test = x_train/255.0,x_test/255.0
 
+#自定义模型
 class MnistModel(Model):
     def __init__(self):
         super(MnistModel,self).__init__()

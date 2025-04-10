@@ -20,9 +20,9 @@ model = tf_keras.models.Sequential([
 
 #模型训练配置
 model.compile(optimizer='adam',
-              #因为最后一层的输出已经使用softmax变为概率分布了，所以from_logits为False
+              #因为最后一层的输出已经使用softmax变为概率分布了，所以from_logits为False，如果输出不是 概率分布，就要True
               loss = tf_keras.losses.SparseCategoricalCrossentropy(from_logits=False),
-              metrics = ['sparse_categorical_accuracy']
+              metrics = ['sparse_categorical_accuracy']#标签不是概率分布，是标签值（0-9），所以用 sparse
               )
 
 #这里不用validation_split，直接填入测试集
